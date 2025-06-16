@@ -15,7 +15,7 @@
 ---
 
 ## 🧱 Developer Level
-![Level](https://progress-bar.dev/31/?title=Kiddie%20Dev%20XP)
+![Level](https://progress-bar.dev/32/?title=Kiddie%20Dev%20XP)
 
 ---
 
